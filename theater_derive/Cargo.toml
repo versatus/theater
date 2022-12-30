@@ -1,0 +1,16 @@
+[package]
+name = "theater_derive"
+version = "0.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0"
+quote = "1.0"
+tokio = { version = "1.21.2", features = ["full"] }
+theater_types = { path = "../theater_types" }
+async-trait = "0.1.58"
