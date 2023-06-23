@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.21.2", features = ["full"] }
+tokio-util = "0.7.8"
 theater_derive = { path = "./theater_derive" }
 theater_types = { path = "./theater_types" }
 async-trait = "0.1.58"
