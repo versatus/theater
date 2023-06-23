@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use async_trait::async_trait;
 use theater_types::{Actor, ActorId, ActorLabel, ActorState, Handler, Result};
 use tokio::sync::broadcast::Receiver;
+use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Clone)]
 pub struct ActorImpl<H, M>
@@ -29,7 +30,7 @@ where
         }
     }
 
-    fn set_early_stop(&mut self, val: bool) {
+    fn _set_early_stop(&mut self, val: bool) {
         self.stop_early = val
     }
 }
@@ -52,7 +53,7 @@ where
         self.handler.status()
     }
 
-    async fn start(&mut self, message_rx: &mut Receiver<M>) -> Result<()> {
+    async fn start(&mut self, message_rx: &mut Receiver<M>) -> Result<CancellationToken> {
         self.handler.set_status(ActorState::Starting);
 
         self.handler.on_start();
@@ -74,7 +75,7 @@ where
                         self.handler.set_status(ActorState::Terminating);
                         self.handler.on_stop();
 
-                        return Ok(());
+                        return Ok(CancellationToken::new());
                     }
                 },
             }
@@ -82,6 +83,6 @@ where
 
         self.handler.set_status(ActorState::Stopped);
 
-        Ok(())
+        Ok(CancellationToken::new())
     }
 }

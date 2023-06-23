@@ -20,7 +20,6 @@ where
     fn set_status(&mut self, state: ActorState);
 
     /// Called every time a message is received by an actor
-    // async fn handle(&mut self, msg: impl std::fmt::Debug + Clone) -> Result<ActorState>;
     async fn handle(&mut self, msg: M) -> Result<ActorState>;
 
     /// Called before starting the message processing loop
@@ -68,5 +67,6 @@ where
     /// Optional human-readable label
     fn label(&self) -> ActorLabel;
     fn status(&self) -> ActorState;
-    async fn start(&mut self, message_rx: &mut Receiver<M>) -> Result<()>;
+    async fn start(&mut self, message_rx: &mut Receiver<M>) -> Result<tokio_util::sync::CancellationToken>;
 }
+
