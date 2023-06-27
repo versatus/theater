@@ -44,10 +44,6 @@ where
         self.handler.id()
     }
 
-    fn label(&self) -> ActorLabel {
-        self.handler.label()
-    }
-
     fn status(&self) -> ActorState {
         self.handler.status()
     }

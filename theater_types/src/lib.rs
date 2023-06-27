@@ -15,25 +15,34 @@ where
     M: std::fmt::Debug + Clone + Send,
 {
     fn id(&self) -> ActorId;
-    fn label(&self) -> ActorLabel;
+
     fn status(&self) -> ActorState;
+
     fn set_status(&mut self, state: ActorState);
 
     /// Called every time a message is received by an actor
-    // async fn handle(&mut self, msg: impl std::fmt::Debug + Clone) -> Result<ActorState>;
+    // async fn handle(&mut self, msg: impl std::fmt::Debug + Clone) ->
+    // Result<ActorState>;
     async fn handle(&mut self, msg: M) -> Result<ActorState>;
 
     /// Called before starting the message processing loop
-    fn on_start(&self) {}
+    fn on_start(&self) {
+        tracing::debug!("started {}", self.id());
+    }
 
     /// Called before starting the message processing loop
+    /// TODO: add context data so it can be meaningfully used
     fn on_tick(&self) {}
 
     /// Called before stopping the message processing loop
-    fn on_stop(&self) {}
+    fn on_stop(&self) {
+        tracing::debug!("stopped {}", self.id());
+    }
 
     /// Called if errors are emitted from the handler function
-    fn on_error(&self, _err: TheaterError) {}
+    fn on_error(&self, err: TheaterError) {
+        tracing::error!("{err}");
+    }
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
@@ -55,6 +64,8 @@ pub struct Message {
 }
 
 pub type ActorId = String;
+
+#[deprecated]
 pub type ActorLabel = String;
 
 #[async_trait]
@@ -65,8 +76,6 @@ where
     /// Uniquely identifies an actor within the system
     fn id(&self) -> ActorId;
 
-    /// Optional human-readable label
-    fn label(&self) -> ActorLabel;
     fn status(&self) -> ActorState;
     async fn start(&mut self, message_rx: &mut Receiver<M>) -> Result<()>;
 }
