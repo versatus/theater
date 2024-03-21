@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use async_trait::async_trait;
-use theater_types::{Actor, ActorId, ActorLabel, ActorState, Handler, Result};
+use theater_types::{Actor, ActorId, ActorLabel, ActorState, Handler, TheaterError, TheaterResult};
 use tokio::sync::broadcast::Receiver;
 
 #[derive(Debug, Clone)]
@@ -52,7 +52,10 @@ where
         self.handler.status()
     }
 
-    async fn start(&mut self, message_rx: &mut Receiver<M>) -> Result<()> {
+    async fn start(
+        &mut self,
+        message_rx: &mut Receiver<M>,
+    ) -> TheaterResult<ActorState, TheaterError> {
         self.handler.set_status(ActorState::Starting);
 
         self.handler.on_start();
@@ -62,26 +65,9 @@ where
         while let Ok(message) = message_rx.recv().await {
             self.handler.on_tick();
 
-            match self.handler.handle(message).await {
-                Err(err) => {
-                    self.handler.on_error(err);
-                    if self.stop_early {
-                        break;
-                    }
-                },
-                Ok(result) => {
-                    if result == ActorState::Stopped {
-                        self.handler.set_status(ActorState::Terminating);
-                        self.handler.on_stop();
-
-                        return Ok(());
-                    }
-                },
-            }
+            self.handler.handle(message).await;
         }
 
         self.handler.set_status(ActorState::Stopped);
-
-        Ok(())
     }
 }
