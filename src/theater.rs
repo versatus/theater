@@ -52,10 +52,7 @@ where
         self.handler.status()
     }
 
-    async fn start(
-        &mut self,
-        message_rx: &mut Receiver<M>,
-    ) -> TheaterResult<ActorState, TheaterError> {
+    async fn start(&mut self, message_rx: &mut Receiver<M>) -> Result<(), TheaterError> {
         self.handler.set_status(ActorState::Starting);
 
         self.handler.on_start();
@@ -65,7 +62,22 @@ where
         while let Ok(message) = message_rx.recv().await {
             self.handler.on_tick();
 
-            self.handler.handle(message).await;
+            match self.handler.handle(message).await.0 {
+                //not sure if this can be made public.
+                Err(err) => {
+                    if self.stop_early {
+                        break;
+                    } else {
+                        self.handler.set_status(ActorState::Running);
+                    }
+                }
+                Ok(result) => {
+                    if result == ActorState::Stopped {
+                        self.handler.set_status(ActorState::Terminating);
+                        self.handler.on_stop();
+                    }
+                }
+            }
         }
 
         self.handler.set_status(ActorState::Stopped);

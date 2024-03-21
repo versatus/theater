@@ -114,8 +114,5 @@ where
     /// Optional human-readable label
     fn label(&self) -> ActorLabel;
     fn status(&self) -> ActorState;
-    async fn start(
-        &mut self,
-        message_rx: &mut Receiver<M>,
-    ) -> TheaterResult<ActorState, TheaterError>;
+    async fn start(&mut self, message_rx: &mut Receiver<M>) -> Result<(), TheaterError>;
 }
