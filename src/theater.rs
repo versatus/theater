@@ -52,7 +52,10 @@ where
         self.handler.status()
     }
 
-    async fn start(&mut self, message_rx: &mut Receiver<M>) -> Result<(), TheaterError> {
+    async fn start(
+        &mut self,
+        message_rx: &mut Receiver<M>,
+    ) -> TheaterResult<ActorState, TheaterError> {
         self.handler.set_status(ActorState::Starting);
 
         self.handler.on_start();
