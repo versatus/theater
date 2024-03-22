@@ -4,22 +4,15 @@ use thiserror;
 use tokio::sync::broadcast::Receiver;
 use tracing;
 
+#[deprecated(note = "error forwarding will be handled by the TheaterResult type")]
 #[derive(thiserror::Error, Debug)]
 pub enum TheaterError {
-    #[error("failed to send event")]
-    EventError,
-    #[error("failed to mine block")]
-    MinerError,
-    #[error("failed to create block")]
-    BlockError,
-    #[error("failed to handle block")]
-    HandleError,
+    #[error("{0}")]
+    Other(String),
 }
 
-// pub type Result<T> = std::result::Result<T, TheaterError>;
-
-#[derive(Debug)]
-struct ErrorType;
+#[deprecated(note = "replaced by TheaterResult")]
+pub type Result<T> = std::result::Result<T, TheaterError>;
 
 #[derive(Debug)]
 pub enum Recover<T> {
@@ -27,15 +20,14 @@ pub enum Recover<T> {
     State(ActorState),
 }
 
-pub struct TheaterResult<T, E: Error + Debug>(Result<T, E>);
+pub struct TheaterResult<T, E: Error + Debug>(std::result::Result<T, E>);
 impl<T, E: Error + Debug> TheaterResult<T, E> {
     /// Logs error types with extra context, converting the error to a recoverable state,
     /// otherwise forwarding the contained value.
     ///
     /// Based on the `.inspect_err` method in `std::result::Result`, with the
     /// focus on recovering from handler execution failure.
-
-    pub fn _with_context(self, context: &str) -> Recover<T> {
+    pub fn with_context(self, context: &str) -> Recover<T> {
         if let Err(ref err) = self.0 {
             if !context.is_empty() {
                 tracing::error!("{context}: {err:?}");
@@ -52,9 +44,19 @@ impl<T, E: Error + Debug> TheaterResult<T, E> {
     ///
     /// Logs error types, converting the error to a recoverable state,
     /// otherwise forwarding the contained value.
-
-    pub fn _on_err(self) -> Recover<T> {
-        self._with_context("")
+    pub fn on_err(self) -> Recover<T> {
+        self.with_context("")
+    }
+}
+// Useful in the case that the program needs to exit or use the Result type directly.
+impl<T, E: Error + Debug> Into<std::result::Result<T, E>> for TheaterResult<T, E> {
+    fn into(self) -> std::result::Result<T, E> {
+        self.0
+    }
+}
+impl<T, E: Error + Debug> AsRef<std::result::Result<T, E>> for TheaterResult<T, E> {
+    fn as_ref(&self) -> &std::result::Result<T, E> {
+        &self.0
     }
 }
 
@@ -68,9 +70,12 @@ where
     fn status(&self) -> ActorState;
     fn set_status(&mut self, state: ActorState);
 
+    #[deprecated(note = "use on_handle method")]
     /// Called every time a message is received by an actor
-    // async fn handle(&mut self, msg: impl std::fmt::Debug + Clone) -> Result<ActorState>;
-    async fn handle(&mut self, msg: M) -> TheaterResult<ActorState, TheaterError>;
+    async fn handle(&mut self, msg: M) -> Result<ActorState>;
+
+    /// Called every time a message is received by an [`Actor`].
+    async fn on_handle<E: Error + Debug>(&mut self, msg: M) -> TheaterResult<ActorState, E>;
 
     /// Called before starting the message processing loop
     fn on_start(&self) {}
@@ -80,6 +85,9 @@ where
 
     /// Called before stopping the message processing loop
     fn on_stop(&self) {}
+
+    #[deprecated(note = "error forwarding will be handled by the TheaterResult type")]
+    fn on_error(&self, err: &TheaterError) {}
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
@@ -114,8 +122,9 @@ where
     /// Optional human-readable label
     fn label(&self) -> ActorLabel;
     fn status(&self) -> ActorState;
-    async fn start(
-        &mut self,
-        message_rx: &mut Receiver<M>,
-    ) -> TheaterResult<ActorState, TheaterError>;
+
+    #[deprecated(note = "replaced by on_start")]
+    async fn start(&mut self, message_rx: &mut Receiver<M>) -> Result<()>;
+
+    async fn on_start<E: Error + Debug>(&mut self, message_rx: &mut Receiver<M>);
 }

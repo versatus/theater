@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
+use std::{error::Error, fmt::Debug, marker::PhantomData};
 
 use async_trait::async_trait;
-use theater_types::{Actor, ActorId, ActorLabel, ActorState, Handler, TheaterError, TheaterResult};
+use theater_types::{Actor, ActorId, ActorLabel, ActorState, Handler, Result};
 use tokio::sync::broadcast::Receiver;
 
 #[derive(Debug, Clone)]
@@ -52,10 +52,7 @@ where
         self.handler.status()
     }
 
-    async fn start(
-        &mut self,
-        message_rx: &mut Receiver<M>,
-    ) -> TheaterResult<ActorState, TheaterError> {
+    async fn start(&mut self, message_rx: &mut Receiver<M>) -> Result<()> {
         self.handler.set_status(ActorState::Starting);
 
         self.handler.on_start();
@@ -65,20 +62,50 @@ where
         while let Ok(message) = message_rx.recv().await {
             self.handler.on_tick();
 
-            match self.handler.handle(message).await.0 {
-                //not sure if this can be made public.
+            match self.handler.handle(message).await {
                 Err(err) => {
+                    self.handler.on_error(&err);
                     if self.stop_early {
                         break;
-                    } else {
-                        self.handler.set_status(ActorState::Running);
                     }
                 }
                 Ok(result) => {
                     if result == ActorState::Stopped {
                         self.handler.set_status(ActorState::Terminating);
                         self.handler.on_stop();
+
+                        return Ok(());
                     }
+                }
+            }
+        }
+
+        self.handler.set_status(ActorState::Stopped);
+
+        Ok(())
+    }
+
+    async fn on_start<E: Error + Debug>(&mut self, message_rx: &mut Receiver<M>) {
+        self.handler.set_status(ActorState::Starting);
+
+        self.handler.on_start();
+
+        self.handler.set_status(ActorState::Started);
+
+        while let Ok(message) = message_rx.recv().await {
+            self.handler.on_tick();
+
+            let res = self.handler.on_handle::<E>(message).await;
+
+            if let Ok(result) = res.as_ref() {
+                if *result == ActorState::Stopped {
+                    self.handler.set_status(ActorState::Terminating);
+                    self.handler.on_stop();
+                }
+            } else {
+                res.on_err();
+                if self.stop_early {
+                    break;
                 }
             }
         }
